@@ -1,4 +1,3 @@
-
 /**
  * Supabase Implementation of Backend Adapters
  * This file contains all Supabase-specific logic
@@ -137,8 +136,8 @@ export class SupabaseVoiceServiceAdapter implements VoiceServiceAdapter {
   createWebSocketUrl(functionName: string, params?: Record<string, string>): string {
     console.log('🎙️ SupabaseVoiceServiceAdapter: Creating WebSocket URL', { functionName, params });
     
-    // Use the deepgram-voice-agent endpoint that exists
-    const baseUrl = `wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/deepgram-voice-agent`;
+    // Use the deepgram-voice-websocket endpoint that exists
+    const baseUrl = `wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/deepgram-voice-websocket`;
     
     if (params) {
       const searchParams = new URLSearchParams(params);

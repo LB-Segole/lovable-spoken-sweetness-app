@@ -49,7 +49,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
             <CardTitle className="text-lg">{template.name}</CardTitle>
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="secondary">{template.category}</Badge>
-              <Badge variant="outline">v{template.version}</Badge>
+              <Badge variant="outline">v{template.version || '1.0.0'}</Badge>
             </div>
           </div>
           <div className="text-right">
@@ -80,7 +80,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <Download className="w-4 h-4" />
-              {template.downloads_count}
+              {template.downloads_count || 0}
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />

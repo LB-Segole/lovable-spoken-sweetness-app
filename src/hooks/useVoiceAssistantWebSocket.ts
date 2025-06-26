@@ -55,20 +55,20 @@ export const useVoiceAssistantWebSocket = ({
         connectionTimeoutRef.current = null;
       }
       
-      const wsUrl = `wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/deepgram-voice-agent`;
+      const wsUrl = `wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/deepgram-voice-websocket`;
       console.log('🌐 Connecting to:', wsUrl);
       
       wsRef.current = new WebSocket(wsUrl);
 
       // Set connection timeout - increased for cold starts
       connectionTimeoutRef.current = setTimeout(() => {
-        console.log('⏰ Connection timeout after 15 seconds');
+        console.log('⏰ Connection timeout after 30 seconds');
         if (wsRef.current && wsRef.current.readyState === WebSocket.CONNECTING) {
           wsRef.current.close();
         }
         setStatus('Connection Timeout');
         onError('Connection timeout - Edge Function may be starting up. Please try again.');
-      }, 15000);
+      }, 30000);
 
       wsRef.current.onopen = () => {
         console.log('✅ WebSocket connected successfully!');
@@ -189,7 +189,7 @@ export const useVoiceAssistantWebSocket = ({
         if (event.code === 1006) {
           console.log('❌ Connection failed (1006)');
           setStatus('Connection Failed');
-          onError('Connection failed. Please check:\n• Deepgram and HuggingFace API keys are configured\n• Edge Function is deployed\n• Network connection is stable');
+          onError('Connection failed. Please check:\n• Deepgram and OpenAI API keys are configured\n• Edge Function is deployed and running\n• Network connection is stable\n• Try refreshing the page and connecting again');
         } else if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
           attemptReconnect();
         } else {

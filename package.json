@@ -40,7 +40,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "@supabase/supabase-js": "^2.50.1",
+    "@supabase/supabase-js": "^2.50.2",
     "@tanstack/react-query": "latest",
     "axios": "^1.10.0",
     "class-variance-authority": "latest",

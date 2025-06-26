@@ -13,258 +13,176 @@ export interface AgentTemplate {
   created_by: string;
   team_id?: string;
   is_public: boolean;
-  downloads_count: number;
   rating_average: number;
   rating_count: number;
+  usage_count: number;
+  downloads_count: number;
   version: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface TemplateReview {
-  id: string;
-  template_id: string;
-  user_id: string;
-  rating: number;
-  review_text?: string;
-  created_at: string;
-}
-
 export const useAgentTemplates = () => {
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
-  const [reviews, setReviews] = useState<TemplateReview[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const loadTemplates = async (category?: string, searchTerm?: string) => {
+  const fetchTemplates = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      let query = supabase
+      console.log('🔄 Fetching agent templates...');
+      const { data, error } = await supabase
         .from('agent_templates')
         .select('*')
-        .order('downloads_count', { ascending: false });
+        .eq('is_public', true)
+        .order('created_at', { ascending: false });
 
-      if (category) {
-        query = query.eq('category', category);
+      if (error) {
+        console.error('❌ Error fetching templates:', error);
+        throw error;
       }
 
-      if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
+      console.log('✅ Templates fetched successfully:', data?.length || 0);
       setTemplates(data || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load templates';
-      setError(errorMessage);
-      
+    } catch (error) {
+      console.error('❌ Error fetching templates:', error);
+      setError('Failed to fetch templates');
       toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to fetch agent templates',
+        variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const createTemplate = async (templateData: {
-    name: string;
-    description?: string;
-    category: string;
-    tags: string[];
-    template_data: Record<string, any>;
-    is_public?: boolean;
-  }): Promise<AgentTemplate | null> => {
+  const fetchCategories = async () => {
     try {
-      setIsLoading(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      console.log('🔄 Fetching template categories...');
+      const { data, error } = await supabase
+        .from('agent_templates')
+        .select('category')
+        .eq('is_public', true);
 
+      if (error) {
+        console.error('❌ Error fetching categories:', error);
+        throw error;
+      }
+
+      const uniqueCategories = [...new Set(data?.map(item => item.category) || [])];
+      console.log('✅ Categories fetched successfully:', uniqueCategories);
+      setCategories(uniqueCategories);
+    } catch (error) {
+      console.error('❌ Error fetching categories:', error);
+      setError('Failed to fetch categories');
+    }
+  };
+
+  const createTemplate = async (templateData: Partial<AgentTemplate>) => {
+    try {
       const { data, error } = await supabase
         .from('agent_templates')
         .insert({
           ...templateData,
-          created_by: user.id,
-          is_public: templateData.is_public || false
+          created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()
         .single();
 
       if (error) throw error;
-      
+
       setTemplates(prev => [data, ...prev]);
-      
       toast({
-        title: "Success",
-        description: "Agent template created successfully",
+        title: 'Success',
+        description: 'Template created successfully',
       });
-      
+
       return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create template';
-      setError(errorMessage);
-      
+    } catch (error) {
+      console.error('Error creating template:', error);
       toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to create template',
+        variant: 'destructive',
       });
-      
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const downloadTemplate = async (templateId: string): Promise<AgentTemplate | null> => {
-    try {
-      // Get current download count first
-      const { data: currentTemplate, error: fetchError } = await supabase
-        .from('agent_templates')
-        .select('downloads_count')
-        .eq('id', templateId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Increment download count
-      const { error: updateError } = await supabase
-        .from('agent_templates')
-        .update({ downloads_count: (currentTemplate.downloads_count || 0) + 1 })
-        .eq('id', templateId);
-
-      if (updateError) throw updateError;
-
-      // Get the updated template
-      const { data, error } = await supabase
-        .from('agent_templates')
-        .select('*')
-        .eq('id', templateId)
-        .single();
-
-      if (error) throw error;
-      
-      setTemplates(prev => 
-        prev.map(template => 
-          template.id === templateId 
-            ? { ...template, downloads_count: template.downloads_count + 1 }
-            : template
-        )
-      );
-      
-      toast({
-        title: "Success",
-        description: "Template downloaded successfully",
-      });
-      
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to download template';
-      setError(errorMessage);
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
-      
       return null;
     }
   };
 
-  const rateTemplate = async (templateId: string, rating: number, reviewText?: string): Promise<boolean> => {
+  const updateTemplate = async (id: string, updates: Partial<AgentTemplate>) => {
     try {
-      setIsLoading(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
       const { data, error } = await supabase
-        .from('template_reviews')
-        .upsert({
-          template_id: templateId,
-          user_id: user.id,
-          rating,
-          review_text: reviewText
-        })
+        .from('agent_templates')
+        .update(updates)
+        .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      
-      setReviews(prev => {
-        const existingIndex = prev.findIndex(
-          review => review.template_id === templateId && review.user_id === user.id
-        );
-        
-        if (existingIndex >= 0) {
-          return prev.map((review, index) => 
-            index === existingIndex ? data : review
-          );
-        } else {
-          return [data, ...prev];
-        }
-      });
-      
+
+      setTemplates(prev => prev.map(t => t.id === id ? data : t));
       toast({
-        title: "Success",
-        description: "Review submitted successfully",
+        title: 'Success',
+        description: 'Template updated successfully',
       });
-      
-      return true;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to submit review';
-      setError(errorMessage);
-      
+
+      return data;
+    } catch (error) {
+      console.error('Error updating template:', error);
       toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to update template',
+        variant: 'destructive',
       });
-      
-      return false;
-    } finally {
-      setIsLoading(false);
+      return null;
     }
   };
 
-  const loadTemplateReviews = async (templateId: string) => {
+  const deleteTemplate = async (id: string) => {
     try {
-      const { data, error } = await supabase
-        .from('template_reviews')
-        .select('*')
-        .eq('template_id', templateId)
-        .order('created_at', { ascending: false });
+      const { error } = await supabase
+        .from('agent_templates')
+        .delete()
+        .eq('id', id);
 
       if (error) throw error;
-      
-      setReviews(data || []);
-    } catch (err) {
-      console.error('Failed to load template reviews:', err);
+
+      setTemplates(prev => prev.filter(t => t.id !== id));
+      toast({
+        title: 'Success',
+        description: 'Template deleted successfully',
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete template',
+        variant: 'destructive',
+      });
+      return false;
     }
   };
 
   useEffect(() => {
-    loadTemplates();
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchTemplates(), fetchCategories()]);
+      setIsLoading(false);
+    };
+
+    loadData();
   }, []);
 
   return {
     templates,
-    reviews,
+    categories,
     isLoading,
     error,
-    loadTemplates,
     createTemplate,
-    downloadTemplate,
-    rateTemplate,
-    loadTemplateReviews
+    updateTemplate,
+    deleteTemplate,
+    refetch: () => Promise.all([fetchTemplates(), fetchCategories()]),
   };
 };

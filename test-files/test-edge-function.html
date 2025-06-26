@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Function WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #log { background: #f8f9fa; padding: 10px; border-radius: 5px; height: 300px; overflow-y: auto; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Edge Function WebSocket Test</h1>
+    
+    <div id="status" class="status">Disconnected</div>
+    
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <button onclick="sendTest()">Send Test Message</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <h3>Connection Log:</h3>
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.CONNECTING) {
+                log('⚠️ Already connecting...');
+                return;
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('⚠️ Already connected');
+                return;
+            }
+
+            log('🔄 Attempting to connect...');
+            updateStatus('Connecting...', 'connecting');
+
+            try {
+                // Test the Edge Function WebSocket URL
+                const wsUrl = 'wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/deepgram-voice-websocket?userId=test&callId=test-call&assistantId=test-assistant';
+                log(`🌐 Connecting to: ${wsUrl}`);
+                
+                ws = new WebSocket(wsUrl);
+
+                // Set connection timeout
+                const connectionTimeout = setTimeout(() => {
+                    if (ws.readyState === WebSocket.CONNECTING) {
+                        log('⏰ Connection timeout after 30 seconds');
+                        ws.close();
+                        updateStatus('Connection Timeout', 'error');
+                    }
+                }, 30000);
+
+                ws.onopen = () => {
+                    clearTimeout(connectionTimeout);
+                    log('✅ WebSocket connected successfully!');
+                    updateStatus('Connected', 'connected');
+                    isConnected = true;
+                    
+                    // Send initial message
+                    ws.send(JSON.stringify({
+                        type: 'start_conversation',
+                        userId: 'test-user',
+                        callId: 'test-call',
+                        assistantId: 'test-assistant',
+                        timestamp: Date.now()
+                    }));
+                    log('📤 Sent start_conversation message');
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📨 Received: ${data.type || 'unknown'} - ${JSON.stringify(data).substring(0, 100)}...`);
+                    } catch (error) {
+                        log(`❌ Error parsing message: ${error.message}`);
+                        log(`📨 Raw message: ${event.data}`);
+                    }
+                };
+
+                ws.onclose = (event) => {
+                    clearTimeout(connectionTimeout);
+                    log(`🔌 WebSocket closed: ${event.code} - ${event.reason || 'No reason'}`);
+                    log(`🔌 Was clean: ${event.wasClean}`);
+                    updateStatus(`Disconnected (${event.code})`, 'error');
+                    isConnected = false;
+                    
+                    if (event.code === 1006) {
+                        log('❌ Connection failed (1006) - This usually means:');
+                        log('   • Edge Function is not deployed or not running');
+                        log('   • Environment variables are missing (DEEPGRAM_API_KEY, OPENAI_API_KEY)');
+                        log('   • Network connectivity issues');
+                        log('   • CORS configuration problems');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`);
+                    updateStatus('Connection Error', 'error');
+                };
+
+            } catch (error) {
+                log(`❌ Failed to create WebSocket: ${error.message}`);
+                updateStatus('Connection Failed', 'error');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                log('🔄 Manual disconnect');
+                ws.close(1000, 'Manual disconnect');
+                ws = null;
+                isConnected = false;
+                updateStatus('Disconnected', 'error');
+            }
+        }
+
+        function sendTest() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('⚠️ Not connected - cannot send message');
+                return;
+            }
+
+            const testMessage = {
+                type: 'ping',
+                message: 'Frontend test message',
+                timestamp: Date.now()
+            };
+            
+            ws.send(JSON.stringify(testMessage));
+            log('📤 Sent test message');
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Auto-connect on page load
+        window.addEventListener('load', () => {
+            log('🚀 Page loaded - ready to test Edge Function');
+        });
+    </script>
+</body>
+</html> 
