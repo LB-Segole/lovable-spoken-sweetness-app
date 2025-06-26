@@ -16,10 +16,10 @@ interface AgentTemplate {
   created_by: string;
   creator_name?: string;
   is_public: boolean;
-  downloads_count: number;
+  downloads_count?: number;
   rating_average: number;
   rating_count: number;
-  version: string;
+  version?: string;
   created_at: string;
 }
 
@@ -42,15 +42,15 @@ export const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({
 }) => {
   const getCategoryColor = (category: string) => {
     const colors = {
-      'Customer Service': 'bg-blue-100 text-blue-800',
-      'Sales': 'bg-green-100 text-green-800',
-      'Support': 'bg-purple-100 text-purple-800',
-      'Healthcare': 'bg-red-100 text-red-800',
-      'Education': 'bg-yellow-100 text-yellow-800',
-      'Finance': 'bg-indigo-100 text-indigo-800',
-      'General': 'bg-gray-100 text-gray-800'
+      'sales': 'bg-green-100 text-green-800',
+      'support': 'bg-blue-100 text-blue-800', 
+      'scheduling': 'bg-purple-100 text-purple-800',
+      'healthcare': 'bg-red-100 text-red-800',
+      'education': 'bg-yellow-100 text-yellow-800',
+      'finance': 'bg-indigo-100 text-indigo-800',
+      'general': 'bg-gray-100 text-gray-800'
     };
-    return colors[category as keyof typeof colors] || colors['General'];
+    return colors[category.toLowerCase() as keyof typeof colors] || colors['general'];
   };
 
   return (
@@ -67,7 +67,7 @@ export const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({
               <Badge className={getCategoryColor(template.category)}>
                 {template.category}
               </Badge>
-              <Badge variant="outline">v{template.version}</Badge>
+              <Badge variant="outline">v{template.version || '1.0.0'}</Badge>
             </div>
           </div>
           
@@ -102,13 +102,13 @@ export const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span>{template.rating_average.toFixed(1)}</span>
-              <span>({template.rating_count})</span>
+              <span>{template.rating_average?.toFixed(1) || '0.0'}</span>
+              <span>({template.rating_count || 0})</span>
             </div>
             
             <div className="flex items-center gap-1">
               <Download className="w-4 h-4" />
-              <span>{template.downloads_count.toLocaleString()}</span>
+              <span>{(template.downloads_count || 0).toLocaleString()}</span>
             </div>
           </div>
           
@@ -117,12 +117,12 @@ export const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({
 
         {/* Tags */}
         <div className="flex flex-wrap gap-1">
-          {template.tags.slice(0, 3).map((tag) => (
+          {template.tags?.slice(0, 3).map((tag) => (
             <Badge key={tag} variant="secondary" className="text-xs">
               {tag}
             </Badge>
-          ))}
-          {template.tags.length > 3 && (
+          )) || null}
+          {template.tags && template.tags.length > 3 && (
             <Badge variant="secondary" className="text-xs">
               +{template.tags.length - 3} more
             </Badge>
@@ -148,7 +148,7 @@ export const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({
             className="flex-1"
           >
             <Download className="w-4 h-4 mr-2" />
-            {isInstalled ? 'Installed' : 'Install'}
+            {isInstalled ? 'Installed' : 'Use Template'}
           </Button>
         </div>
       </CardContent>

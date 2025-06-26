@@ -1,3 +1,4 @@
+
 // Export all pages from this file
 export { default as Dashboard } from './Dashboard';
 export { default as Campaigns } from './Campaigns';
@@ -23,3 +24,4 @@ export { default as NotFound } from './NotFound';
 export { default as LandingPage } from './LandingPage';
 export { default as CampaignDetail } from './CampaignDetail';
 export { default as Index } from './Index';
+export { default as Marketplace } from './Marketplace';

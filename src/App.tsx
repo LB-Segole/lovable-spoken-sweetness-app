@@ -1,47 +1,55 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Toaster } from '@/components/ui/sonner';
+
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { AppLayout } from '@/components/Layout/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import Dashboard from '@/pages/Dashboard';
+import { 
+  LandingPage,
+  Dashboard, 
+  Campaigns, 
+  CallHistory, 
+  CallCenter, 
+  Assistants,
+  Login,
+  Register,
+  About,
+  Faq,
+  Pricing,
+  Blog,
+  BlogPost,
+  ContactSales,
+  Documentation,
+  ApiDocumentation,
+  Tutorials,
+  CaseStudies,
+  PrivacyPolicy,
+  TermsOfService,
+  CookiePolicy,
+  NotFound,
+  CampaignDetail,
+  Index,
+  Marketplace
+} from '@/pages';
 import VoiceAgents from '@/pages/VoiceAgents';
-import AgentMarketplace from '@/pages/AgentMarketplace';
-import Campaigns from '@/pages/Campaigns';
-import CallHistory from '@/pages/CallHistory';
-import CallCenter from '@/pages/CallCenter';
-import Assistants from '@/pages/Assistants';
-import About from '@/pages/About';
-import Faq from '@/pages/Faq';
-import Pricing from '@/pages/Pricing';
-import Blog from '@/pages/Blog';
-import BlogPost from '@/pages/BlogPost';
-import ContactSales from '@/pages/ContactSales';
-import Documentation from '@/pages/Documentation';
-import ApiDocumentation from '@/pages/ApiDocumentation';
-import Tutorials from '@/pages/Tutorials';
-import CaseStudies from '@/pages/CaseStudies';
-import PrivacyPolicy from '@/pages/PrivacyPolicy';
-import TermsOfService from '@/pages/TermsOfService';
-import CookiePolicy from '@/pages/CookiePolicy';
-import NotFound from '@/pages/NotFound';
-import LandingPage from '@/pages/LandingPage';
-import CampaignDetail from '@/pages/CampaignDetail';
-import { Index } from '@/pages';
+import AgentFlowEditor from '@/pages/AgentFlowEditor';
+import { AgentOrchestration } from '@/pages/AgentOrchestration';
 import IntegrationsPage from '@/pages/IntegrationsPage';
+import { TeamManagement } from '@/pages/TeamManagement';
+import Settings from '@/pages/Settings';
+import { Toaster } from '@/components/ui/toaster';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <BrowserRouter>
+      <AuthProvider>
         <AppLayout>
           <Routes>
             {/* Public routes */}
+            <Route path="/" element={<Navigate to="/landing" replace />} />
+            <Route path="/index" element={<Index />} />
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/landing" element={<LandingPage />} />
-            <Route path="/index" element={<Index />} />
             <Route path="/about" element={<About />} />
             <Route path="/faq" element={<Faq />} />
             <Route path="/pricing" element={<Pricing />} />
@@ -55,26 +63,11 @@ function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/cookie-policy" element={<CookiePolicy />} />
-            
+
             {/* Protected routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/voice-agents" element={
-              <ProtectedRoute>
-                <VoiceAgents />
-              </ProtectedRoute>
-            } />
-            <Route path="/marketplace" element={
-              <ProtectedRoute>
-                <AgentMarketplace />
               </ProtectedRoute>
             } />
             <Route path="/campaigns" element={
@@ -102,19 +95,54 @@ function App() {
                 <Assistants />
               </ProtectedRoute>
             } />
+            <Route path="/voice-agents" element={
+              <ProtectedRoute>
+                <VoiceAgents />
+              </ProtectedRoute>
+            } />
+            <Route path="/agent-flow-editor" element={
+              <ProtectedRoute>
+                <AgentFlowEditor />
+              </ProtectedRoute>
+            } />
+            <Route path="/agent-flow-editor/:id" element={
+              <ProtectedRoute>
+                <AgentFlowEditor />
+              </ProtectedRoute>
+            } />
+            <Route path="/orchestration" element={
+              <ProtectedRoute>
+                <AgentOrchestration />
+              </ProtectedRoute>
+            } />
             <Route path="/integrations" element={
               <ProtectedRoute>
                 <IntegrationsPage />
               </ProtectedRoute>
             } />
-            
-            {/* 404 catch-all */}
+            <Route path="/marketplace" element={
+              <ProtectedRoute>
+                <Marketplace />
+              </ProtectedRoute>
+            } />
+            <Route path="/teams" element={
+              <ProtectedRoute>
+                <TeamManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+
+            {/* 404 route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <Toaster />
         </AppLayout>
-      </Router>
-    </AuthProvider>
+        <Toaster />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
