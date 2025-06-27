@@ -1,99 +1,63 @@
-import { supabase } from '@/lib/supabase';
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'user' | 'assistant';
   content: string;
   timestamp?: string;
 }
 
-export interface AIResponse {
+export interface ChatResponse {
   success: boolean;
   response?: string;
   error?: string;
-  agent?: {
-    id: string;
-    name: string;
-    voice_model: string;
-  };
 }
 
-export class AIChatService {
+class AIChatService {
   private conversationHistory: Map<string, ChatMessage[]> = new Map();
 
-  async sendMessage(
-    agentId: string,
-    message: string,
-    sessionId?: string
-  ): Promise<AIResponse> {
+  async sendMessage(message: string, sessionId: string): Promise<ChatResponse> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Authentication required');
-      }
+      // Get conversation history
+      const history = this.conversationHistory.get(sessionId) || [];
+      
+      // Simulate AI response for local mode
+      const response = this.generateLocalResponse();
+      
+      // Update conversation history
+      const updatedHistory = [
+        ...history,
+        { role: 'user' as const, content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant' as const, content: response, timestamp: new Date().toISOString() }
+      ];
+      
+      this.conversationHistory.set(sessionId, updatedHistory);
 
-      // Get conversation history for this session
-      const sessionKey = sessionId || agentId;
-      const history = this.conversationHistory.get(sessionKey) || [];
-
-      const { data, error } = await supabase.functions.invoke('huggingface-chat', {
-        body: {
-          agentId,
-          message,
-          conversationHistory: history
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) {
-        console.error('AI Chat Service error:', error);
-        throw error;
-      }
-
-      if (data?.success && data?.response) {
-        // Update conversation history
-        const updatedHistory = [
-          ...history,
-          { role: 'user' as const, content: message, timestamp: new Date().toISOString() },
-          { role: 'assistant' as const, content: data.response, timestamp: new Date().toISOString() }
-        ];
-
-        // Keep only last 20 messages to prevent memory issues
-        if (updatedHistory.length > 20) {
-          updatedHistory.splice(0, updatedHistory.length - 20);
-        }
-
-        this.conversationHistory.set(sessionKey, updatedHistory);
-
-        return {
-          success: true,
-          response: data.response,
-          agent: data.agent
-        };
-      }
-
-      throw new Error(data?.error || 'Failed to get AI response');
-
+      return {
+        success: true,
+        response
+      };
     } catch (error) {
-      console.error('AI Chat Service error:', error);
+      console.error('Chat error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: 'Failed to process message'
       };
     }
-  }
-
-  getConversationHistory(sessionId: string): ChatMessage[] {
-    return this.conversationHistory.get(sessionId) || [];
   }
 
   clearConversationHistory(sessionId: string): void {
     this.conversationHistory.delete(sessionId);
   }
 
-  clearAllHistory(): void {
-    this.conversationHistory.clear();
+  private generateLocalResponse(): string {
+    const responses = [
+      "I understand your question. How can I help you further?",
+      "That's an interesting point. Let me think about that...",
+      "I appreciate you sharing that with me. What would you like to know next?",
+      "Thanks for the message! I'm here to assist you.",
+      "I see what you're asking about. Let me provide some guidance."
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
   }
 }
 

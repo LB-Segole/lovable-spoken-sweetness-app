@@ -1,97 +1,63 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Campaign } from '@/types';
+import { useState, useEffect } from 'react';
+import { backendService } from '@/services/BackendService';
+
+export interface Campaign {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'draft' | 'active' | 'paused' | 'completed';
+  assistant_id?: string;
+  total_calls?: number;
+  completed_calls?: number;
+  success_rate?: number;
+  created_at: string;
+  updated_at: string;
+}
 
 export const useCampaigns = () => {
-  const queryClient = useQueryClient();
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch campaigns
-  const { data: campaigns, isLoading, error } = useQuery({
-    queryKey: ['campaigns'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data as Campaign[];
-    }
-  });
+  useEffect(() => {
+    loadCampaigns();
+  }, []);
 
-  // Create campaign mutation
-  const createCampaign = useMutation({
-    mutationFn: async (campaignData: Omit<Campaign, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert([campaignData])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['campaign-stats'] });
-      toast.success('Campaign created successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to create campaign: ${error.message}`);
+  const loadCampaigns = async () => {
+    try {
+      setIsLoading(true);
+      const data = await backendService.select<Campaign>('campaigns', {
+        orderBy: { column: 'created_at', ascending: false }
+      });
+      setCampaigns(data || []);
+    } catch (error) {
+      console.error('Error loading campaigns:', error);
+      setCampaigns([]);
+    } finally {
+      setIsLoading(false);
     }
-  });
+  };
 
-  // Update campaign mutation
-  const updateCampaign = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Campaign> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
+  const createCampaign = async (campaignData: Partial<Campaign>): Promise<Campaign | null> => {
+    try {
+      const newCampaign = await backendService.insert<Campaign>('campaigns', {
+        ...campaignData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
       
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['campaign-stats'] });
-      toast.success('Campaign updated successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to update campaign: ${error.message}`);
+      setCampaigns(prev => [newCampaign, ...prev]);
+      return newCampaign;
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      throw error;
     }
-  });
-
-  // Delete campaign mutation
-  const deleteCampaign = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('campaigns')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['campaign-stats'] });
-      toast.success('Campaign deleted successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to delete campaign: ${error.message}`);
-    }
-  });
+  };
 
   return {
-    campaigns: campaigns || [],
+    campaigns,
     isLoading,
-    error,
-    createCampaign,
-    updateCampaign,
-    deleteCampaign
+    refetch: loadCampaigns,
+    createCampaign
   };
 };

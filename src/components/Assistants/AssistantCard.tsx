@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Assistant } from '@/types/assistant';
+import { Assistant } from '@/hooks/useAssistants';
 import { Edit, Trash2, Phone, Mic } from 'lucide-react';
 
 interface AssistantCardProps {
@@ -27,8 +28,8 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
           <div>
             <CardTitle className="text-lg">{assistant.name}</CardTitle>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline">{assistant.voice_id}</Badge>
-              <Badge variant="secondary">{assistant.model}</Badge>
+              <Badge variant="outline">{assistant.voice_id || 'default'}</Badge>
+              <Badge variant="secondary">{assistant.model || 'nova-2'}</Badge>
             </div>
           </div>
           <div className="flex gap-1">
@@ -83,7 +84,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
         </div>
         
         <div className="text-xs text-gray-400">
-          Created: {new Date(assistant.created_at).toLocaleDateString()}
+          Created: {assistant.created_at ? new Date(assistant.created_at).toLocaleDateString() : 'Unknown'}
         </div>
       </CardContent>
     </Card>

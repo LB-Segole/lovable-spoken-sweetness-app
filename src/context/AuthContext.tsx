@@ -1,260 +1,138 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
-import { validatePassword } from '../utils/validation';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { backendService } from '@/services/BackendService';
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-interface RegisterData extends LoginCredentials {
-  name: string;
-}
-
-interface ProfileData {
-  name: string;
-  email: string;
-  phone?: string;
-  countryCode?: string;
-  address?: string;
-  city?: string;
-  country?: string;
-  postalCode?: string;
-}
-
-interface AuthContextType {
-  user: User | null;
+interface AuthContextProps {
+  user: any | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout: () => Promise<void>;
+  login: (credentials: any) => Promise<void>;
+  logout: () => void;
+  register: (userData: any) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
-  updateProfile: (data: ProfileData) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-          email: session.user.email || '',
-          role: 'user',
-          created_at: session.user.created_at
-        });
-      }
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-          email: session.user.email || '',
-          role: 'user',
-          created_at: session.user.created_at
-        });
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const login = async (credentials: LoginCredentials) => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        const userData: User = {
-          id: data.user.id,
-          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
-          email: data.user.email || '',
-          role: 'user',
-          created_at: data.user.created_at
-        };
-        setUser(userData);
-        
-        toast.success('Login successful', {
-          description: `Welcome back, ${userData.name}!`,
-        });
-      }
-    } catch (error: any) {
-      toast.error('Login failed', {
-        description: error.message || "Invalid email or password",
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const register = async (data: RegisterData) => {
-    setIsLoading(true);
-    try {
-      const passwordValidation = validatePassword(data.password);
-      if (!passwordValidation.isValid) {
-        throw new Error('Password does not meet requirements: ' + passwordValidation.errors.join(', '));
-      }
-
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            name: data.name,
-          },
-          emailRedirectTo: `${window.location.origin}/login`
-        }
-      });
-
-      if (error) throw error;
-
-      if (authData.user) {
-        toast.success('Registration successful', {
-          description: `Welcome, ${data.name}! Please check your email to verify your account.`,
-        });
-      }
-    } catch (error: any) {
-      toast.error('Registration failed', {
-        description: error.message || "Could not create account",
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      setUser(null);
-      toast.success('Logged out', {
-        description: "You have been successfully logged out",
-      });
-    } catch (error: any) {
-      console.error('Logout error:', error);
-      toast.error('Logout failed');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resetPassword = async (email: string) => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      
-      if (error) throw error;
-    } catch (error: any) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updatePassword = async (newPassword: string) => {
-    setIsLoading(true);
-    try {
-      const passwordValidation = validatePassword(newPassword);
-      if (!passwordValidation.isValid) {
-        throw new Error('Password does not meet requirements');
-      }
-
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateProfile = async (profileData: ProfileData) => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        email: profileData.email,
-        data: {
-          name: profileData.name,
-          phone: profileData.phone,
-          countryCode: profileData.countryCode,
-          address: profileData.address,
-          city: profileData.city,
-          country: profileData.country,
-          postalCode: profileData.postalCode,
-        }
-      });
-
-      if (error) throw error;
-
-      if (user) {
-        setUser({
-          ...user,
-          name: profileData.name,
-          email: profileData.email,
-        });
-      }
-    } catch (error: any) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isLoading, 
-        isAuthenticated: !!user, 
-        login, 
-        register, 
-        logout,
-        resetPassword,
-        updatePassword,
-        updateProfile
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadUser = async () => {
+      console.log('Starting auth loading...');
+      try {
+        // Add a timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        );
+        
+        const userPromise = backendService.getCurrentUser();
+        const currentUser = await Promise.race([userPromise, timeoutPromise]);
+        console.log('User loaded successfully:', currentUser);
+        setUser(currentUser);
+      } catch (error) {
+        console.warn('Failed to load user:', error);
+        setUser(null);
+      } finally {
+        console.log('Setting isLoading to false');
+        setIsLoading(false);
+      }
+    };
+
+    loadUser();
+    
+    // Fallback timeout to ensure app renders
+    const fallbackTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('Auth loading timeout, forcing render');
+        setIsLoading(false);
+      }
+    }, 10000);
+
+    return () => clearTimeout(fallbackTimeout);
+  }, [isLoading]);
+
+  const login = async (credentials: { email: string; password: string }): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const session = await backendService.signIn(credentials.email, credentials.password);
+      setUser(session);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (userData: { email: string; password: string; name?: string }): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const session = await backendService.signUp(userData.email, userData.password);
+      setUser(session);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = () => {
+    backendService.signOut();
+    setUser(null);
+    navigate('/login');
+  };
+
+  const resetPassword = async (email: string): Promise<void> => {
+    console.log('Reset password requested for:', email);
+    // Simulate password reset in local mode
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  };
+
+  const updatePassword = async (_newPassword: string): Promise<void> => {
+    console.log('Password update requested');
+    // Simulate password update in local mode
+    setUser((prev: any) => prev ? { ...prev, updated_at: new Date().toISOString() } : null);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  };
+
+  const value: AuthContextProps = {
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+    login,
+    logout,
+    register,
+    resetPassword,
+    updatePassword
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {isLoading ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  );
 };
