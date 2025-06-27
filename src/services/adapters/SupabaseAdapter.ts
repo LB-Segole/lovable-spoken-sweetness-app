@@ -1,4 +1,3 @@
-
 /**
  * Supabase Implementation of Backend Adapters
  * This file contains all Supabase-specific logic
@@ -6,7 +5,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { AuthAdapter, DatabaseAdapter, VoiceServiceAdapter, AuthUser, DatabaseRecord, WebSocketMessage } from './types';
+import { AuthAdapter, DatabaseAdapter, VoiceServiceAdapter, AuthUser, DatabaseRecord } from './types';
 
 export class SupabaseAuthAdapter implements AuthAdapter {
   async signUp(email: string, password: string): Promise<AuthUser> {
