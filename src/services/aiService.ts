@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { aiChatService } from './aiChatService';
 
@@ -27,8 +28,7 @@ export const generateAIResponse = async (
     if (context.agentId) {
       const response = await aiChatService.sendMessage(
         context.agentId,
-        transcript,
-        context.callId
+        transcript
       );
 
       if (response.success && response.response) {
@@ -196,7 +196,7 @@ const logAIInteraction = async (
     await supabase.from('call_logs').insert({
       call_id: context.callId,
       speaker: 'ai_system',
-      message: `User: ${transcript} | AI: ${response.text}`,
+      content: `User: ${transcript} | AI: ${response.text}`,
       confidence: response.confidence || 0.8,
       timestamp: new Date().toISOString()
     });

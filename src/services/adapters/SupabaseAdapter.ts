@@ -1,3 +1,4 @@
+
 /**
  * Supabase Implementation of Backend Adapters
  * This file contains all Supabase-specific logic
@@ -133,11 +134,11 @@ export class SupabaseDatabaseAdapter implements DatabaseAdapter {
 }
 
 export class SupabaseVoiceServiceAdapter implements VoiceServiceAdapter {
-  createWebSocketUrl(functionName: string, params?: Record<string, string>): string {
-    console.log('🎙️ SupabaseVoiceServiceAdapter: Creating WebSocket URL', { functionName, params });
+  createVoiceWebSocketUrl(path: string, params?: Record<string, string>): string {
+    console.log('🎙️ SupabaseVoiceServiceAdapter: Creating WebSocket URL', { path, params });
     
     // Use the deepgram-voice-websocket endpoint that exists
-    const baseUrl = `wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/deepgram-voice-websocket`;
+    const baseUrl = `wss://csixccpoxpnwowbgkoyw.supabase.co/functions/v1/${path}`;
     
     if (params) {
       const searchParams = new URLSearchParams(params);
@@ -163,17 +164,26 @@ export class SupabaseVoiceServiceAdapter implements VoiceServiceAdapter {
     return base64Audio;
   }
 
-  handleVoiceMessage(message: any): WebSocketMessage {
+  handleVoiceMessage(message: any): void {
     console.log('🎙️ SupabaseVoiceServiceAdapter: Handling voice message', { type: message.type });
     
-    return {
-      type: message.type || message.event || 'unknown',
-      data: message,
-      timestamp: Date.now()
-    };
+    // Process the voice message - this method doesn't return anything according to the interface
+    // Implementation can be extended based on specific needs
   }
 
   getCurrentBackendType(): string {
     return 'supabase';
+  }
+
+  isRailwayBackend(): boolean {
+    return false;
+  }
+
+  isSupabaseBackend(): boolean {
+    return true;
+  }
+
+  isLocalBackend(): boolean {
+    return false;
   }
 }
