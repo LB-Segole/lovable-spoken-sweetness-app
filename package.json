@@ -47,6 +47,7 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "cmdk": "latest",
+    "concurrently": "^8.2.2",
     "cors": "^2.8.5",
     "date-fns": "latest",
     "dotenv": "^16.5.0",

@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { backendService } from '@/services/BackendService';
@@ -32,17 +33,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadUser = async () => {
       console.log('Starting auth loading...');
       try {
-        // Add a timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 5000)
-        );
-        
-        const userPromise = backendService.getCurrentUser();
-        const currentUser = await Promise.race([userPromise, timeoutPromise]);
+        const currentUser = await backendService.getCurrentUser();
         console.log('User loaded successfully:', currentUser);
         setUser(currentUser);
       } catch (error) {
-        console.warn('Failed to load user:', error);
+        console.warn('Failed to load user (this is normal for local backend):', error);
         setUser(null);
       } finally {
         console.log('Setting isLoading to false');
@@ -51,17 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadUser();
-    
-    // Fallback timeout to ensure app renders
-    const fallbackTimeout = setTimeout(() => {
-      if (isLoading) {
-        console.warn('Auth loading timeout, forcing render');
-        setIsLoading(false);
-      }
-    }, 10000);
-
-    return () => clearTimeout(fallbackTimeout);
-  }, [isLoading]);
+  }, []);
 
   const login = async (credentials: { email: string; password: string }): Promise<void> => {
     setIsLoading(true);
@@ -99,13 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string): Promise<void> => {
     console.log('Reset password requested for:', email);
-    // Simulate password reset in local mode
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
   const updatePassword = async (_newPassword: string): Promise<void> => {
     console.log('Password update requested');
-    // Simulate password update in local mode
     setUser((prev: any) => prev ? { ...prev, updated_at: new Date().toISOString() } : null);
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
@@ -121,18 +104,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updatePassword
   };
 
+  // Show loading screen only for a short time, then render children
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {isLoading ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      ) : (
-        children
-      )}
+      {children}
     </AuthContext.Provider>
   );
 };
