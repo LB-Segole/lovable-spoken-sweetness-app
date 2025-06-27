@@ -1,10 +1,10 @@
 
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Account = () => {
-  const { currentUser, logout } = useAuth();
+  const { user: currentUser, logout } = useAuth();
 
   const handleLogout = async () => {
     try {

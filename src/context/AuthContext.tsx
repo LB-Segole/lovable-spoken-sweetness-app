@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updatePassword = async (newPassword: string): Promise<void> => {
-    console.log('Password update requested');
+    console.log('Password update requested for:', newPassword);
     // For local backend, this would need to be implemented
     setUser((prev: any) => prev ? { ...prev, updated_at: new Date().toISOString() } : null);
     await new Promise(resolve => setTimeout(resolve, 1000));
