@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('User loaded successfully:', currentUser);
         setUser(currentUser);
       } catch (error) {
-        console.warn('Failed to load user (this is normal for local backend):', error);
+        console.log('No user logged in (this is normal for fresh local backend):', error);
         setUser(null);
       } finally {
         console.log('Setting isLoading to false');
@@ -52,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const session = await backendService.signIn(credentials.email, credentials.password);
+      console.log('Login successful:', session);
       setUser(session);
       navigate('/dashboard');
     } catch (error) {
@@ -65,7 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (userData: { email: string; password: string; name?: string }): Promise<void> => {
     setIsLoading(true);
     try {
-      const session = await backendService.signUp(userData.email, userData.password);
+      const session = await backendService.signUp(userData.email, userData.password, { name: userData.name });
+      console.log('Registration successful:', session);
       setUser(session);
       navigate('/dashboard');
     } catch (error) {
@@ -77,18 +79,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    console.log('Logging out user');
     backendService.signOut();
     setUser(null);
     navigate('/login');
   };
 
   const resetPassword = async (email: string): Promise<void> => {
-    console.log('Reset password requested for:', email);
+    console.log('Password reset requested for:', email);
+    // For local backend, this would need to be implemented in the backend
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
-  const updatePassword = async (_newPassword: string): Promise<void> => {
+  const updatePassword = async (newPassword: string): Promise<void> => {
     console.log('Password update requested');
+    // For local backend, this would need to be implemented
     setUser((prev: any) => prev ? { ...prev, updated_at: new Date().toISOString() } : null);
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
@@ -104,7 +109,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updatePassword
   };
 
-  // Show loading screen only for a short time, then render children
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

@@ -1,5 +1,5 @@
 
-import { supabase } from '@/lib/supabase';
+import { backendService } from '@/services/BackendService';
 import { aiChatService } from './aiChatService';
 
 interface AIResponseContext {
@@ -48,8 +48,10 @@ export const generateAIResponse = async (
     // Fallback to rule-based AI response
     const response = await processTranscript(transcript);
     
-    // Log the interaction
-    await logAIInteraction(transcript, response, context);
+    // Log the interaction (only if we're not in local backend mode or if the backend supports it)
+    if (!backendService.isLocalBackend()) {
+      await logAIInteraction(transcript, response, context);
+    }
     
     return response;
   } catch (error) {
@@ -193,7 +195,7 @@ const logAIInteraction = async (
   context: AIResponseContext
 ) => {
   try {
-    await supabase.from('call_logs').insert({
+    await backendService.insert('call_logs', {
       call_id: context.callId,
       speaker: 'ai_system',
       content: `User: ${transcript} | AI: ${response.text}`,
