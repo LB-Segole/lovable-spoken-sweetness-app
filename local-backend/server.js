@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { initializeDatabase } = require('./init-db');
@@ -17,7 +17,49 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-t
 
 // Database connection
 const dbPath = path.join(__dirname, 'voice-agent.db');
-const db = new Database(dbPath);
+let db;
+
+// Initialize database connection with retry logic
+const initDB = () => {
+  db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('❌ Error opening database:', err);
+      setTimeout(initDB, 1000); // Retry after 1 second
+    } else {
+      console.log('✅ Connected to SQLite database');
+    }
+  });
+};
+
+initDB();
+
+// Helper functions to promisify sqlite3 methods
+const dbGet = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+};
+
+const dbAll = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+};
+
+const dbRun = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve({ changes: this.changes, lastID: this.lastID });
+    });
+  });
+};
 
 // Middleware
 app.use(cors({
@@ -59,7 +101,7 @@ app.post('/auth/signup', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const existingUser = await dbGet('SELECT * FROM users WHERE email = ?', [email]);
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -70,8 +112,8 @@ app.post('/auth/signup', async (req, res) => {
     
     // Create user
     const userId = uuidv4();
-    const stmt = db.prepare('INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)');
-    stmt.run(userId, email, passwordHash, name || '');
+    await dbRun('INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)', 
+      [userId, email, passwordHash, name || '']);
     
     // Generate token
     const token = jwt.sign({ id: userId, email }, JWT_SECRET, { expiresIn: '24h' });
@@ -95,7 +137,7 @@ app.post('/auth/signin', async (req, res) => {
     }
 
     // Find user
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const user = await dbGet('SELECT * FROM users WHERE email = ?', [email]);
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
@@ -119,9 +161,9 @@ app.post('/auth/signin', async (req, res) => {
   }
 });
 
-app.get('/auth/user', authenticateToken, (req, res) => {
+app.get('/auth/user', authenticateToken, async (req, res) => {
   try {
-    const user = db.prepare('SELECT id, email, name FROM users WHERE id = ?').get(req.user.id);
+    const user = await dbGet('SELECT id, email, name FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -134,9 +176,9 @@ app.get('/auth/user', authenticateToken, (req, res) => {
 });
 
 // Voice agents routes
-app.get('/voice_agents', authenticateToken, (req, res) => {
+app.get('/voice_agents', authenticateToken, async (req, res) => {
   try {
-    const agents = db.prepare('SELECT * FROM voice_agents WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+    const agents = await dbAll('SELECT * FROM voice_agents WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
     res.json({ data: agents });
   } catch (error) {
     console.error('Get voice agents error:', error);
@@ -144,7 +186,7 @@ app.get('/voice_agents', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/voice_agents', authenticateToken, (req, res) => {
+app.post('/voice_agents', authenticateToken, async (req, res) => {
   try {
     const agentId = uuidv4();
     const agentData = {
@@ -155,13 +197,11 @@ app.post('/voice_agents', authenticateToken, (req, res) => {
       updated_at: new Date().toISOString()
     };
     
-    const stmt = db.prepare(`
+    await dbRun(`
       INSERT INTO voice_agents 
       (id, user_id, name, system_prompt, first_message, voice_provider, voice_id, model, temperature, max_tokens, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    stmt.run(
+    `, [
       agentData.id,
       agentData.user_id,
       agentData.name,
@@ -175,7 +215,7 @@ app.post('/voice_agents', authenticateToken, (req, res) => {
       agentData.is_active !== false ? 1 : 0,
       agentData.created_at,
       agentData.updated_at
-    );
+    ]);
     
     res.json({ data: agentData });
   } catch (error) {
@@ -184,7 +224,7 @@ app.post('/voice_agents', authenticateToken, (req, res) => {
   }
 });
 
-app.put('/voice_agents/:id', authenticateToken, (req, res) => {
+app.put('/voice_agents/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = {
@@ -192,13 +232,11 @@ app.put('/voice_agents/:id', authenticateToken, (req, res) => {
       updated_at: new Date().toISOString()
     };
     
-    const stmt = db.prepare(`
+    const result = await dbRun(`
       UPDATE voice_agents 
       SET name = ?, system_prompt = ?, first_message = ?, voice_provider = ?, voice_id = ?, model = ?, temperature = ?, max_tokens = ?, is_active = ?, updated_at = ?
       WHERE id = ? AND user_id = ?
-    `);
-    
-    const changes = stmt.run(
+    `, [
       updateData.name,
       updateData.system_prompt,
       updateData.first_message,
@@ -211,13 +249,13 @@ app.put('/voice_agents/:id', authenticateToken, (req, res) => {
       updateData.updated_at,
       id,
       req.user.id
-    );
+    ]);
     
-    if (changes.changes === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ error: 'Voice agent not found' });
     }
     
-    const updatedAgent = db.prepare('SELECT * FROM voice_agents WHERE id = ?').get(id);
+    const updatedAgent = await dbGet('SELECT * FROM voice_agents WHERE id = ?', [id]);
     res.json({ data: updatedAgent });
   } catch (error) {
     console.error('Update voice agent error:', error);
@@ -225,13 +263,12 @@ app.put('/voice_agents/:id', authenticateToken, (req, res) => {
   }
 });
 
-app.delete('/voice_agents/:id', authenticateToken, (req, res) => {
+app.delete('/voice_agents/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const stmt = db.prepare('DELETE FROM voice_agents WHERE id = ? AND user_id = ?');
-    const changes = stmt.run(id, req.user.id);
+    const result = await dbRun('DELETE FROM voice_agents WHERE id = ? AND user_id = ?', [id, req.user.id]);
     
-    if (changes.changes === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ error: 'Voice agent not found' });
     }
     
@@ -242,10 +279,10 @@ app.delete('/voice_agents/:id', authenticateToken, (req, res) => {
   }
 });
 
-// Assistants routes (similar structure)
-app.get('/assistants', authenticateToken, (req, res) => {
+// Assistants routes
+app.get('/assistants', authenticateToken, async (req, res) => {
   try {
-    const assistants = db.prepare('SELECT * FROM assistants WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+    const assistants = await dbAll('SELECT * FROM assistants WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
     res.json({ data: assistants });
   } catch (error) {
     console.error('Get assistants error:', error);
@@ -253,7 +290,7 @@ app.get('/assistants', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/assistants', authenticateToken, (req, res) => {
+app.post('/assistants', authenticateToken, async (req, res) => {
   try {
     const assistantId = uuidv4();
     const assistantData = {
@@ -264,13 +301,11 @@ app.post('/assistants', authenticateToken, (req, res) => {
       updated_at: new Date().toISOString()
     };
     
-    const stmt = db.prepare(`
+    await dbRun(`
       INSERT INTO assistants 
       (id, user_id, name, system_prompt, first_message, voice_provider, voice_id, model, temperature, max_tokens, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    stmt.run(
+    `, [
       assistantData.id,
       assistantData.user_id,
       assistantData.name,
@@ -283,7 +318,7 @@ app.post('/assistants', authenticateToken, (req, res) => {
       assistantData.max_tokens || 500,
       assistantData.created_at,
       assistantData.updated_at
-    );
+    ]);
     
     res.json({ data: assistantData });
   } catch (error) {
@@ -295,12 +330,19 @@ app.post('/assistants', authenticateToken, (req, res) => {
 // Error handling
 process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down local backend...');
-  db.close();
+  if (db) {
+    db.close((err) => {
+      if (err) console.error('Error closing database:', err);
+      else console.log('Database connection closed');
+    });
+  }
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  db.close();
+  if (db) {
+    db.close();
+  }
   process.exit(0);
 });
 

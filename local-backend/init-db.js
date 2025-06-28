@@ -1,17 +1,17 @@
 
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 function initializeDatabase() {
   const dbPath = path.join(__dirname, 'voice-agent.db');
-  const db = new Database(dbPath);
+  const db = new sqlite3.Database(dbPath);
 
   console.log('🗄️ Initializing local database...');
 
   // Create tables if they don't exist
-  try {
+  db.serialize(() => {
     // Users table (for local auth)
-    db.exec(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
@@ -23,7 +23,7 @@ function initializeDatabase() {
     `);
 
     // Voice agents table
-    db.exec(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS voice_agents (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -43,7 +43,7 @@ function initializeDatabase() {
     `);
 
     // Assistants table
-    db.exec(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS assistants (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -62,7 +62,7 @@ function initializeDatabase() {
     `);
 
     // Call logs table
-    db.exec(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS call_logs (
         id TEXT PRIMARY KEY,
         call_id TEXT,
@@ -71,14 +71,15 @@ function initializeDatabase() {
         confidence REAL DEFAULT 0,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       )
-    `);
-
-    console.log('✅ Database tables created successfully');
-  } catch (error) {
-    console.error('❌ Error creating database tables:', error);
-  }
-
-  db.close();
+    `, (err) => {
+      if (err) {
+        console.error('❌ Error creating database tables:', err);
+      } else {
+        console.log('✅ Database tables created successfully');
+      }
+      db.close();
+    });
+  });
 }
 
 module.exports = { initializeDatabase };
