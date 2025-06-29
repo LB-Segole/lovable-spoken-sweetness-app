@@ -4,6 +4,103 @@ import { storage } from "./storage";
 import { insertCallSchema, insertAssistantSchema, insertVoiceAgentSchema, insertCampaignSchema } from "../shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication API Routes
+  app.post("/api/auth/signin", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      // Find user by email (using email as username for login)
+      const user = await storage.getUserByUsername(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // In a real app, you'd verify the password hash here
+      // For now, we'll do a simple comparison (not secure for production)
+      if (user.password !== password) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Return user data (excluding password)
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({
+        user: userWithoutPassword,
+        token: `user_${user.id}` // Simple token for demo
+      });
+
+    } catch (error) {
+      console.error("Signin error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { username, email, password } = req.body;
+
+      if (!username || !email || !password) {
+        return res.status(400).json({ error: "Username, email and password are required" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ error: "User already exists" });
+      }
+
+      // Create new user
+      const newUser = await storage.createUser({
+        username,
+        email,
+        password // In production, hash this password
+      });
+
+      // Return user data (excluding password)
+      const { password: _, ...userWithoutPassword } = newUser;
+      res.json({
+        user: userWithoutPassword,
+        token: `user_${newUser.id}`
+      });
+
+    } catch (error) {
+      console.error("Signup error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post("/api/auth/signout", async (req, res) => {
+    // In a real app, you'd invalidate the token here
+    res.json({ success: true });
+  });
+
+  app.get("/api/auth/user", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      const token = authHeader.substring(7);
+      const userId = token.replace('user_', '');
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "Failed to get user" });
+    }
+  });
+
   // Voice Agent API Routes
   app.get("/api/voice-agents", async (req, res) => {
     try {
