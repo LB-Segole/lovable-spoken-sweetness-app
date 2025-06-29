@@ -43,7 +43,7 @@ const ResetPassword = () => {
     }
 
     try {
-      await updatePassword(password);
+      await updatePassword();
       toast.success('Password updated successfully');
       navigate('/login');
     } catch (error) {
