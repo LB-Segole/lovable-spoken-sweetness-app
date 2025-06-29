@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { backendService } from '@/services/BackendService';
@@ -12,7 +11,7 @@ interface AuthContextProps {
   logout: () => void;
   register: (userData: any) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updatePassword: (newPassword: string) => Promise<void>;
+  updatePassword: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -106,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
-  const updatePassword = async (newPassword: string): Promise<void> => {
+  const updatePassword = async (): Promise<void> => {
     console.log('AuthContext: Password update requested');
     // For local backend, this would need to be implemented
     setUser((prev: any) => prev ? { ...prev, updated_at: new Date().toISOString() } : null);

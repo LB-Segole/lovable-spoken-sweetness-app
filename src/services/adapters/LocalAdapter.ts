@@ -1,4 +1,3 @@
-
 /**
  * Local Backend Adapter
  * 
@@ -147,14 +146,14 @@ export default class LocalAdapter implements BackendAdapter {
     }
   }
 
-  onAuthStateChange(callback: (user: AuthUser | null) => void): (() => void) {
+  onAuthStateChange(): (() => void) {
     // For local backend, we don't have real-time auth state changes
     // This is a simple implementation that could be enhanced with websockets
     return () => {};
   }
 
   // Database methods
-  async select<T = DatabaseRecord>(table: string, query?: any): Promise<T[]> {
+  async select<T = DatabaseRecord>(table: string): Promise<T[]> {
     if (!this.token) {
       throw new Error('Authentication required');
     }
@@ -257,7 +256,7 @@ export default class LocalAdapter implements BackendAdapter {
     }
   }
 
-  subscribe(table: string, callback: (payload: any) => void): (() => void) {
+  subscribe(): (() => void) {
     // For local backend, we don't have real-time subscriptions yet
     // This could be implemented with websockets in the future
     return () => {};

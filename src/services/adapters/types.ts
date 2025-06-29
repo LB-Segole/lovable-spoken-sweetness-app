@@ -7,6 +7,7 @@
 export interface AuthUser {
   id: string;
   email?: string;
+  name?: string;
   user_metadata?: Record<string, any>;
   metadata?: Record<string, any>;
 }
