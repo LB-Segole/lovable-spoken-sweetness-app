@@ -12,7 +12,7 @@ import {
   DatabaseRecord 
 } from './types';
 
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = '';
 
 export default class LocalAdapter implements BackendAdapter {
   private token: string | null = null;
@@ -28,7 +28,7 @@ export default class LocalAdapter implements BackendAdapter {
     console.log('LocalAdapter: Signing up user with email:', email);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,7 +66,7 @@ export default class LocalAdapter implements BackendAdapter {
     console.log('LocalAdapter: Signing in user with email:', email);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/signin`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export default class LocalAdapter implements BackendAdapter {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/user`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/user`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.token}`,
