@@ -1,61 +1,117 @@
 
-import { createClient } from '@supabase/supabase-js';
+// API Client for Express Backend
+const API_BASE_URL = '/api';
 
-const supabaseUrl = 'https://csixccpoxpnwowbgkoyw.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzaXhjY3BveHBud293Ymdrb3l3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5Mjg0MDMsImV4cCI6MjA2MzUwNDQwM30.tQrCwtiHS5p-CTp1Z2gkVnAcV_TGlcxpGy-zwI46UyQ';
+// API helper functions to replace Supabase calls
+export const apiClient = {
+  // Generic API call helper
+  async request(endpoint: string, options: RequestInit = {}) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
 
-// Create a single instance to be shared across the app
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+
+    return response.json();
   },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-});
 
-// For server-side operations, this would use service role key
+  // Voice Agents
+  async getVoiceAgents(userId: string) {
+    return this.request(`/voice-agents?userId=${userId}`);
+  },
+
+  async createVoiceAgent(agent: any) {
+    return this.request('/voice-agents', {
+      method: 'POST',
+      body: JSON.stringify(agent),
+    });
+  },
+
+  // Assistants
+  async getAssistants(userId?: string) {
+    const query = userId ? `?userId=${userId}` : '';
+    return this.request(`/assistants${query}`);
+  },
+
+  async createAssistant(assistant: any) {
+    return this.request('/assistants', {
+      method: 'POST',
+      body: JSON.stringify(assistant),
+    });
+  },
+
+  // Calls
+  async getCalls(userId?: string, limit = 50, offset = 0) {
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    return this.request(`/calls?${params}`);
+  },
+
+  async makeCall(callData: any) {
+    return this.request('/make-call', {
+      method: 'POST',
+      body: JSON.stringify(callData),
+    });
+  },
+
+  async makeOutboundCall(callData: any) {
+    return this.request('/make-outbound-call', {
+      method: 'POST',
+      body: JSON.stringify(callData),
+    });
+  },
+
+  // Campaigns
+  async getCampaigns(userId?: string) {
+    const query = userId ? `?userId=${userId}` : '';
+    return this.request(`/campaigns${query}`);
+  },
+
+  async createCampaign(campaign: any) {
+    return this.request('/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(campaign),
+    });
+  },
+
+  // Contacts
+  async getContacts(userId: string) {
+    return this.request(`/contacts?userId=${userId}`);
+  },
+
+  // Agent Flows
+  async getAgentFlows(userId: string) {
+    return this.request(`/agent-flows?userId=${userId}`);
+  },
+
+  // Teams
+  async getTeams(userId: string) {
+    return this.request(`/teams?userId=${userId}`);
+  },
+};
+
+// Real-time updates can be implemented using WebSocket connections
+// For now, we'll use polling or Server-Sent Events as a replacement
+export const subscribeToCallUpdates = (callId: string, callback: (data: any) => void) => {
+  // TODO: Implement WebSocket subscription or polling for call updates
+  console.log('Real-time call updates not yet implemented for:', callId);
+  return { unsubscribe: () => {} };
+};
+
+export const subscribeToActiveCallsUpdates = (userId: string, callback: (data: any) => void) => {
+  // TODO: Implement WebSocket subscription or polling for active calls
+  console.log('Real-time active calls updates not yet implemented for:', userId);
+  return { unsubscribe: () => {} };
+};
+
+// Legacy exports for backward compatibility
+export const supabase = null;
 export const supabaseAdmin = null;
-
-// Real-time subscription helpers
-export const subscribeToCallUpdates = (callId: string, callback: (payload: any) => void) => {
-  return supabase
-    .channel(`call-${callId}`)
-    .on('postgres_changes', 
-      { 
-        event: '*', 
-        schema: 'public', 
-        table: 'calls',
-        filter: `id=eq.${callId}`
-      }, 
-      callback
-    )
-    .on('postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'call_logs',
-        filter: `call_id=eq.${callId}`
-      },
-      callback
-    )
-    .subscribe();
-};
-
-export const subscribeToActiveCallsUpdates = (userId: string, callback: (payload: any) => void) => {
-  return supabase
-    .channel(`user-calls-${userId}`)
-    .on('postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'calls',
-        filter: `user_id=eq.${userId}`
-      },
-      callback
-    )
-    .subscribe();
-};
