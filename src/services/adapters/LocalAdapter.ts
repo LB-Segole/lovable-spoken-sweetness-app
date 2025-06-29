@@ -1,167 +1,291 @@
 
-import { BackendAdapter, AuthUser, DatabaseRecord } from './types';
+/**
+ * Local Backend Adapter
+ * 
+ * This adapter handles communication with the local Express.js backend
+ * running on port 3001. It implements the same interface as other adapters
+ * to maintain consistency across different backend implementations.
+ */
 
-class LocalAdapter implements BackendAdapter {
-  private baseUrl: string;
+import { 
+  BackendAdapter, 
+  AuthUser, 
+  DatabaseRecord 
+} from './types';
+
+const API_BASE_URL = 'http://localhost:3001';
+
+export default class LocalAdapter implements BackendAdapter {
   private token: string | null = null;
 
   constructor() {
-    this.baseUrl = 'http://localhost:3001';
-    this.token = localStorage.getItem('local_auth_token');
+    // Try to load token from localStorage on initialization
+    this.token = localStorage.getItem('auth_token');
+    console.log('LocalAdapter initialized, token present:', !!this.token);
   }
 
-  private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...((options.headers as Record<string, string>) || {}),
-    };
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
-    }
-
-    return response.json();
-  }
-
+  // Auth methods
   async signUp(email: string, password: string, metadata?: any): Promise<AuthUser> {
-    const data = await this.request('/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, name: metadata?.name || '' }),
-    });
-
-    this.token = data.token;
-    localStorage.setItem('local_auth_token', this.token!);
-
-    return {
-      id: data.user.id,
-      email: data.user.email,
-      user_metadata: { name: data.user.name },
-    };
-  }
-
-  async signIn(email: string, password: string): Promise<AuthUser> {
-    const data = await this.request('/auth/signin', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-
-    this.token = data.token;
-    localStorage.setItem('local_auth_token', this.token!);
-
-    return {
-      id: data.user.id,
-      email: data.user.email,
-      user_metadata: { name: data.user.name },
-    };
-  }
-
-  async signOut(): Promise<void> {
-    this.token = null;
-    localStorage.removeItem('local_auth_token');
-  }
-
-  async getCurrentUser(): Promise<AuthUser | null> {
-    if (!this.token) return null;
-
+    console.log('LocalAdapter: Signing up user with email:', email);
+    
     try {
-      const data = await this.request('/auth/user');
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          name: metadata?.name || ''
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Signup response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed');
+      }
+
+      // Store the token
+      this.token = data.token;
+      localStorage.setItem('auth_token', data.token);
+      
       return {
         id: data.user.id,
         email: data.user.email,
-        user_metadata: { name: data.user.name },
+        name: data.user.name
       };
-    } catch {
-      // Token might be expired
-      this.signOut();
+    } catch (error) {
+      console.error('LocalAdapter signup error:', error);
+      throw error;
+    }
+  }
+
+  async signIn(email: string, password: string): Promise<AuthUser> {
+    console.log('LocalAdapter: Signing in user with email:', email);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/signin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Signin response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signin failed');
+      }
+
+      // Store the token
+      this.token = data.token;
+      localStorage.setItem('auth_token', data.token);
+      
+      return {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name
+      };
+    } catch (error) {
+      console.error('LocalAdapter signin error:', error);
+      throw error;
+    }
+  }
+
+  async signOut(): Promise<void> {
+    console.log('LocalAdapter: Signing out user');
+    this.token = null;
+    localStorage.removeItem('auth_token');
+  }
+
+  async getCurrentUser(): Promise<AuthUser | null> {
+    console.log('LocalAdapter: Getting current user, token present:', !!this.token);
+    
+    if (!this.token) {
+      console.log('No token found, returning null');
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/user`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.log('Failed to get current user, status:', response.status);
+        if (response.status === 401 || response.status === 403) {
+          // Token is invalid, clear it
+          this.token = null;
+          localStorage.removeItem('auth_token');
+        }
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('Current user response:', data);
+      
+      return {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name
+      };
+    } catch (error) {
+      console.error('LocalAdapter getCurrentUser error:', error);
       return null;
     }
   }
 
   onAuthStateChange(callback: (user: AuthUser | null) => void): (() => void) {
-    // For local implementation, we'll just call the callback once with current user
-    this.getCurrentUser().then(callback);
-    
-    // Return a cleanup function (no-op for local)
+    // For local backend, we don't have real-time auth state changes
+    // This is a simple implementation that could be enhanced with websockets
     return () => {};
   }
 
+  // Database methods
   async select<T = DatabaseRecord>(table: string, query?: any): Promise<T[]> {
-    let endpoint = `/${table}`;
-    
-    if (query) {
-      const params = new URLSearchParams();
-      Object.entries(query).forEach(([key, value]) => {
-        params.append(key, String(value));
-      });
-      endpoint += `?${params.toString()}`;
+    if (!this.token) {
+      throw new Error('Authentication required');
     }
 
-    const data = await this.request(endpoint);
-    return data.data || [];
+    try {
+      const response = await fetch(`${API_BASE_URL}/${table}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${table}`);
+      }
+
+      const data = await response.json();
+      return data.data || [];
+    } catch (error) {
+      console.error(`LocalAdapter select error for ${table}:`, error);
+      throw error;
+    }
   }
 
   async insert<T = DatabaseRecord>(table: string, data: any): Promise<T> {
-    const response = await this.request(`/${table}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return response.data;
+    if (!this.token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/${table}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to insert into ${table}`);
+      }
+
+      const result = await response.json();
+      return result.data;
+    } catch (error) {
+      console.error(`LocalAdapter insert error for ${table}:`, error);
+      throw error;
+    }
   }
 
   async update<T = DatabaseRecord>(table: string, id: string, data: any): Promise<T> {
-    const response = await this.request(`/${table}/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    return response.data;
+    if (!this.token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/${table}/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update ${table}`);
+      }
+
+      const result = await response.json();
+      return result.data;
+    } catch (error) {
+      console.error(`LocalAdapter update error for ${table}:`, error);
+      throw error;
+    }
   }
 
   async delete(table: string, id: string): Promise<void> {
-    await this.request(`/${table}/${id}`, {
-      method: 'DELETE',
-    });
+    if (!this.token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/${table}/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete from ${table}`);
+      }
+    } catch (error) {
+      console.error(`LocalAdapter delete error for ${table}:`, error);
+      throw error;
+    }
   }
 
-  subscribe(_table: string, _callback: (payload: any) => void): (() => void) {
-    // For local implementation, we'll use polling or WebSocket
-    // For now, return a no-op cleanup function
+  subscribe(table: string, callback: (payload: any) => void): (() => void) {
+    // For local backend, we don't have real-time subscriptions yet
+    // This could be implemented with websockets in the future
     return () => {};
   }
 
+  // Voice service methods
   createVoiceWebSocketUrl(path: string, params?: Record<string, string>): string {
-    const wsUrl = this.baseUrl.replace('http', 'ws');
-    const searchParams = new URLSearchParams(params);
-    return `${wsUrl}/${path}?${searchParams.toString()}`;
+    const wsUrl = new URL(`ws://localhost:3001${path}`);
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        wsUrl.searchParams.set(key, value);
+      });
+    }
+    return wsUrl.toString();
   }
 
   processAudioData(audioData: Float32Array): string {
-    // Convert Float32Array to base64
-    const buffer = new ArrayBuffer(audioData.length * 4);
-    const view = new Float32Array(buffer);
-    view.set(audioData);
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
+    // Convert Float32Array to base64 string for transmission
+    const uint8Array = new Uint8Array(audioData.buffer);
+    return btoa(String.fromCharCode(...uint8Array));
   }
 
   handleVoiceMessage(message: any): void {
-    console.log('Local voice message:', message);
+    // Handle voice-specific message processing
+    console.log('Voice message received:', message);
   }
 
+  // Utility methods
   getCurrentBackendType(): string {
     return 'local';
   }
@@ -178,5 +302,3 @@ class LocalAdapter implements BackendAdapter {
     return true;
   }
 }
-
-export default LocalAdapter;

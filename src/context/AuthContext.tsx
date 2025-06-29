@@ -2,6 +2,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { backendService } from '@/services/BackendService';
+import { toast } from 'sonner';
 
 interface AuthContextProps {
   user: any | null;
@@ -31,16 +32,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const loadUser = async () => {
-      console.log('Starting auth loading...');
+      console.log('AuthContext: Starting auth loading...');
+      setIsLoading(true);
+      
       try {
         const currentUser = await backendService.getCurrentUser();
-        console.log('User loaded successfully:', currentUser);
+        console.log('AuthContext: User loaded successfully:', currentUser);
         setUser(currentUser);
       } catch (error) {
-        console.log('No user logged in (this is normal for fresh local backend):', error);
+        console.log('AuthContext: No user logged in (this is normal for fresh sessions):', error);
         setUser(null);
       } finally {
-        console.log('Setting isLoading to false');
+        console.log('AuthContext: Setting isLoading to false');
         setIsLoading(false);
       }
     };
@@ -49,14 +52,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (credentials: { email: string; password: string }): Promise<void> => {
+    console.log('AuthContext: Login attempt for:', credentials.email);
     setIsLoading(true);
+    
     try {
       const session = await backendService.signIn(credentials.email, credentials.password);
-      console.log('Login successful:', session);
+      console.log('AuthContext: Login successful:', session);
       setUser(session);
+      toast.success('Login successful!');
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch (error: any) {
+      console.error('AuthContext: Login failed:', error);
+      const errorMessage = error.message || 'Login failed';
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -64,14 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (userData: { email: string; password: string; name?: string }): Promise<void> => {
+    console.log('AuthContext: Registration attempt for:', userData.email);
     setIsLoading(true);
+    
     try {
       const session = await backendService.signUp(userData.email, userData.password, { name: userData.name });
-      console.log('Registration successful:', session);
+      console.log('AuthContext: Registration successful:', session);
       setUser(session);
+      toast.success('Account created successfully!');
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch (error: any) {
+      console.error('AuthContext: Registration failed:', error);
+      const errorMessage = error.message || 'Registration failed';
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -79,22 +92,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    console.log('Logging out user');
+    console.log('AuthContext: Logging out user');
     backendService.signOut();
     setUser(null);
+    toast.success('Logged out successfully');
     navigate('/login');
   };
 
   const resetPassword = async (email: string): Promise<void> => {
-    console.log('Password reset requested for:', email);
+    console.log('AuthContext: Password reset requested for:', email);
     // For local backend, this would need to be implemented in the backend
+    toast.info('Password reset functionality not implemented for local backend');
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
   const updatePassword = async (newPassword: string): Promise<void> => {
-    console.log('Password update requested for:', newPassword);
+    console.log('AuthContext: Password update requested');
     // For local backend, this would need to be implemented
     setUser((prev: any) => prev ? { ...prev, updated_at: new Date().toISOString() } : null);
+    toast.success('Password updated successfully');
     await new Promise(resolve => setTimeout(resolve, 1000));
   };
 

@@ -18,14 +18,19 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login form submitted with:', { email, password: '***' });
+    
     setIsLoading(true);
     setError('');
 
     try {
       await login({ email, password });
-      navigate('/dashboard');
-    } catch (err) {
-      setError('Invalid email or password');
+      console.log('Login successful, should navigate to dashboard');
+      // Navigation is handled in the AuthContext
+    } catch (err: any) {
+      console.error('Login error in component:', err);
+      const errorMessage = err.message || 'Invalid email or password';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -47,6 +52,7 @@ const Login: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -57,10 +63,13 @@ const Login: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             {error && (
-              <div className="text-red-600 text-sm">{error}</div>
+              <div className="text-red-600 text-sm p-2 bg-red-50 rounded border border-red-200">
+                {error}
+              </div>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
